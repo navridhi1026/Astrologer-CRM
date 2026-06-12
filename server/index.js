@@ -17,19 +17,30 @@ const dashboardRoutes = require('./routes/dashboard');
 const app = express();
 
 // Middleware
+// Allow all Vercel preview URLs + localhost + custom FRONTEND_URL
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:5173',
   'http://localhost:5173',
+  'http://localhost:3000',
 ];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // Allow requests with no origin (Postman, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    // Allow any vercel.app subdomain
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    // Allow localhost variants
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Block everything else
+    console.warn(`⛔ CORS blocked origin: ${origin}`);
+    callback(new Error(`CORS: Origin ${origin} not allowed`));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
 
