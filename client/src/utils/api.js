@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Auto-detect environment: use Render backend in production, localhost in dev
+const BASE_URL = import.meta.env.VITE_API_URL
+  || (window.location.hostname === 'localhost'
+      ? 'http://localhost:5000/api'
+      : 'https://astrologer-crm-backend-ozzh.onrender.com/api');
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: BASE_URL,
 });
 
 // Attach token to every request
