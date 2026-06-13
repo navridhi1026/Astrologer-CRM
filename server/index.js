@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dns = require('dns');
+const https = require('https');
 require('dotenv').config();
 
 // Force IPv4 DNS + use Google DNS to fix querySrv issues on networks with broken IPv6 DNS
@@ -55,16 +56,43 @@ app.use('/api/dashboard', dashboardRoutes);
 app.get('/', (req, res) => res.json({ message: '🔮 Astrologer CRM API Running' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// ─────────────────────────────────────────────────────────────
+// SELF-PING: Keep Render free-tier server awake permanently
+// Pings own /api/health every 14 minutes so it never sleeps.
+// (Render spins down after 15 min of inactivity)
+// ─────────────────────────────────────────────────────────────
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+const PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
+
+function keepAlive() {
+  if (!RENDER_URL) return; // skip in local dev
+  const url = `${RENDER_URL}/api/health`;
+  https.get(url, (res) => {
+    console.log(`🏓 Self-ping OK — ${new Date().toISOString()} [${res.statusCode}]`);
+  }).on('error', (err) => {
+    console.warn(`⚠️  Self-ping failed: ${err.message}`);
+  });
+}
+
 // Connect to MongoDB and start server
 const PORT = process.env.PORT || 5000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ MongoDB connected');
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      // Start keep-alive pings after server is up
+      setInterval(keepAlive, PING_INTERVAL);
+      console.log(`⏰ Keep-alive pings scheduled every 14 minutes`);
+    });
   })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err.message);
     console.log('⚠️  Starting server without DB...');
-    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT} (no DB)`));
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT} (no DB)`);
+      setInterval(keepAlive, PING_INTERVAL);
+    });
   });
+
