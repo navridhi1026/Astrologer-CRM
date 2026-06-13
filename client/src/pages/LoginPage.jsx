@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
@@ -7,8 +7,31 @@ import toast from 'react-hot-toast';
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [serverReady, setServerReady] = useState(false);
+  const warmingToastId = useRef(null);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // Ping server on mount so Render wakes up before the user clicks Sign In
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Only show toast if server hasn't responded yet
+      warmingToastId.current = toast.loading('⏳ Server is warming up, please wait a moment...', { duration: 30000 });
+    }, 2000);
+
+    api.get('/health')
+      .catch(() => api.get('/')) // fallback to root
+      .finally(() => {
+        clearTimeout(timer);
+        if (warmingToastId.current) {
+          toast.dismiss(warmingToastId.current);
+          warmingToastId.current = null;
+        }
+        setServerReady(true);
+      });
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -53,6 +53,7 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/', (req, res) => res.json({ message: '🔮 Astrologer CRM API Running' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Connect to MongoDB and start server
 const PORT = process.env.PORT || 5000;
